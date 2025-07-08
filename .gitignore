@@ -1,0 +1,20 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Java build output
+/out/
+/target/
+/build/
+/bin/
+
+# Compiled class files
+*.class
+
+# Java libraries
+javalib/*.jar
+out/production/**/javalib/*.jar
+
+# Other
+*.log
+.DS_Store
