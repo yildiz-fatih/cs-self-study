@@ -113,38 +113,38 @@ public class Model extends Observable {
 
         int N = board.size();
 
-        // Process each column separately
+        // Handle each column independently
         for (int c = 0; c < N; c += 1) {
-            boolean[] merged = new boolean[N]; // Track rows that have already merged this move
-            // Scan from the second-to-top row down to the bottom
+            // Track which rows have already merged this move
+            boolean[] merged = new boolean[N];
+
+            // For each tile in the column, starting just below the top row and going down
             for (int r = N - 2; r >= 0; r -= 1) {
                 Tile t = board.tile(c, r);
-                if (t == null) {
-                    continue; // Skip if no tile
-                }
+                if (t == null) continue; // skip if no tile to move or merge
 
-                int mergeTargetRow = r;
-                int emptyTargetRow = r;
-                // Look upwards to find the furthest legal move or merge position
+                // Scan upward for either the first merge or the farthest empty
+                int targetRow = r;
                 for (int next = r + 1; next < N; next += 1) {
                     Tile nextTile = board.tile(c, next);
                     if (nextTile == null) {
-                        emptyTargetRow = next;
-                    } else if (t.value() == nextTile.value()) {
-                        mergeTargetRow = next;
+                        targetRow = next; // empty tile, keep going
+                    } else if (t.value() == nextTile.value() && !merged[next]) {
+                        targetRow = next; // can merge here
+                        break; // stop scanning upward
+                    } else {
+                        break; // blocked by a tile that can’t merge (different value or already merged)
                     }
                 }
 
-                if (mergeTargetRow != r && !merged[mergeTargetRow]) {
+                // If we found a new position, do the move/merge
+                if (targetRow != r) {
                     changed = true;
-                    boolean didMerge = board.move(c, mergeTargetRow, t);
+                    boolean didMerge = board.move(c, targetRow, t);
                     if (didMerge) {
                         score += (t.value() * 2);
-                        merged[mergeTargetRow] = true;
+                        merged[targetRow] = true; // mark as merged
                     }
-                } else if (emptyTargetRow != r) {
-                    changed = true;
-                    board.move(c, emptyTargetRow, t);
                 }
             }
         }
