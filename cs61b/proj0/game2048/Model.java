@@ -107,43 +107,44 @@ public class Model extends Observable {
      *    and the trailing tile does not.
      * */
     public boolean tilt(Side side) {
-        int N = board.size();
-        /**
-         * do not forget to:
-         * - update the score
-         * - set "changed" to "true"
-         * important:
-         * - only call move on a given tile once per call to tilt
-         * how?:
-         * - In a given column, the piece on the top row (row 3) stays put.
-         * The piece on row 2 can move up if the space above it is empty,
-         * or it can move up one if the space above it has the same value as itself.
-         * In other words, when iterating over rows, it is safe to iterate starting from row 3 down,
-         * since there’s no way a tile will have to move again after moving once.
-         * - helper function that processes a single column of the board, since each column is handled independently
-         */
         boolean changed;
         changed = false;
         board.setViewingPerspective(side);
 
-        // write code here...
-        for (int c = 0; c < N; c += 1) { // go over each column independently
-            for (int r = N - 2; r >= 0; r -= 1) { // go over a single column, starting from top (second from top tile) going down
-                Tile t = board.tile(c, r); // TODO: THIS MAY BE NULL, FIX!!!
+        int N = board.size();
+
+        // Process each column separately
+        for (int c = 0; c < N; c += 1) {
+            boolean[] merged = new boolean[N]; // Track rows that have already merged this move
+            // Scan from the second-to-top row down to the bottom
+            for (int r = N - 2; r >= 0; r -= 1) {
+                Tile t = board.tile(c, r);
                 if (t == null) {
-                    continue; // nothing here to move/merge
+                    continue; // Skip if no tile
                 }
-                /** i need sth to keep track of the "target row" */
-                int targetRow = r;
-                for (int i = r + 1; i < N; i += 1) { // go over the tiles above the current tile to see if there is an empty/same value tile
-                    if (board.tile(c, i) == null || t.value() == board.tile(c, i).value()) { // if the tile we are checking against is empty (null) or the same value as the one we are checking against
-                        targetRow = i;
+
+                int mergeTargetRow = r;
+                int emptyTargetRow = r;
+                // Look upwards to find the furthest legal move or merge position
+                for (int next = r + 1; next < N; next += 1) {
+                    Tile nextTile = board.tile(c, next);
+                    if (nextTile == null) {
+                        emptyTargetRow = next;
+                    } else if (t.value() == nextTile.value()) {
+                        mergeTargetRow = next;
                     }
                 }
-                if (targetRow != r) {
+
+                if (mergeTargetRow != r && !merged[mergeTargetRow]) {
                     changed = true;
-                    boolean merged = board.move(c, targetRow, t);
-                    if (merged) { score += (t.value() * 2); }
+                    boolean didMerge = board.move(c, mergeTargetRow, t);
+                    if (didMerge) {
+                        score += (t.value() * 2);
+                        merged[mergeTargetRow] = true;
+                    }
+                } else if (emptyTargetRow != r) {
+                    changed = true;
+                    board.move(c, emptyTargetRow, t);
                 }
             }
         }
@@ -155,6 +156,7 @@ public class Model extends Observable {
         }
         return changed;
     }
+
 
     /** Checks if the game is over and sets the gameOver variable
      *  appropriately.
