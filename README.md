@@ -18,7 +18,6 @@
 
 ## Programming Fundamentals
 
-- [ ] [MIT 6.100L](https://ocw.mit.edu/courses/6-100l-introduction-to-cs-and-programming-using-python-fall-2022)
 - [ ] [Berkeley CS 61A](https://cs61a.org)
 
 ## Data Structures & Algorithms
@@ -27,15 +26,20 @@
 - [ ] [Stony Brook CSE 373](https://www3.cs.stonybrook.edu/~skiena/373)
 - [ ] [MIT 6.006](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020)
 
-## Computer Architecture
+## Computer Architecture — Computer Systems
 
 - [ ] [Berkeley CS 61C](https://cs61c.org)
+- [ ] [CMU 15-213](https://scs.hosted.panopto.com/Panopto/Pages/Sessions/List.aspx#folderID=%22b96d90ae-9871-4fae-91e2-b1627b43e25e%22)
 
 ## Operating Systems
 
 ## Computer Networking
 
+- [ ] [Berkeley CS 168](https://sp25.cs168.io)
+
 ## Databases
+
+- [ ] [Berkeley CS 186](https://learning.edge.edx.org/course/course-v1:BerkeleyX+CS186+2018_SP)
 
 ## Languages & Compilers
 
