@@ -1,16 +1,14 @@
 package deque;
-/*
-    TODO:
-    public Iterator<T> iterator()
-    public boolean equals(Object o)
-    public T getRecursive(int index): Same as get, but uses recursion.
- */
-public class LinkedListDeque<T> implements Deque<T> {
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+
+public class LinkedListDeque<T> implements Deque<T>, Iterable<T> {
 
     class Node {
         T value;
-        Node prev;
-        Node next;
+        Node prev, next;
 
         public Node(T value, Node prev, Node next) {
             this.value = value;
@@ -45,11 +43,6 @@ public class LinkedListDeque<T> implements Deque<T> {
         sentinel.prev = n;
 
         size += 1;
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return size == 0;
     }
 
     @Override
@@ -109,5 +102,70 @@ public class LinkedListDeque<T> implements Deque<T> {
         }
 
         return p.value;
+    }
+
+    public T getRecursive(int index) {
+        return getRecursiveHelper(index, sentinel.next);
+    }
+
+    private T getRecursiveHelper(int index, Node current) {
+        if (index == 0) {
+            return (T) current.value;
+        } else {
+            return getRecursiveHelper(index - 1, current.next);
+        }
+    }
+
+
+    @Override
+    public Iterator<T> iterator() {
+        return new LinkedListDequeIterator();
+    }
+
+    private class LinkedListDequeIterator implements Iterator<T> {
+        private Node current = sentinel.next;
+        private int count = 0;
+
+        @Override
+        public boolean hasNext() {
+            return count < size;
+        }
+
+        @Override
+        public T next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            T val = current.value;
+            current = current.next;
+            count++;
+            return val;
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Deque<?>)) {
+            return false;
+        }
+
+        Deque<?> other = (Deque<?>) o;
+        if (other.size() != this.size) {
+            return false;
+        }
+
+        for (int i = 0; i < size; i++) {
+            T thisItem = this.get(i);
+            Object otherItem = other.get(i);
+
+            if (!Objects.equals(thisItem, otherItem)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
