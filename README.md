@@ -24,7 +24,6 @@
 
 - [ ] [Berkeley CS 61B](https://sp21.datastructur.es)
 - [ ] [Stony Brook CSE 373](https://www3.cs.stonybrook.edu/~skiena/373)
-- [ ] [MIT 6.006](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020)
 
 ## Computer Architecture — Computer Systems
 
@@ -32,6 +31,7 @@
 - [ ] [CMU 15-213](https://scs.hosted.panopto.com/Panopto/Pages/Sessions/List.aspx#folderID=%22b96d90ae-9871-4fae-91e2-b1627b43e25e%22)
 
 ## Operating Systems
+- [ ] [Berkeley CS 162](https://cs162.org)
 
 ## Computer Networking
 
