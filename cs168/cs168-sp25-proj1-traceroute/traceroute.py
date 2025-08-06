@@ -1,32 +1,15 @@
 import util
 
-# Your program should send TTLs in the range [1, TRACEROUTE_MAX_TTL] inclusive.
-# Technically IPv4 supports TTLs up to 255, but in practice this is excessive.
-# Most traceroute implementations cap at approximately 30.  The unit tests
-# assume you don't change this number.
 TRACEROUTE_MAX_TTL = 30
 
-# Cisco seems to have standardized on UDP ports [33434, 33464] for traceroute.
-# While not a formal standard, it appears that some routers on the internet
-# will only respond with time exceeeded ICMP messages to UDP packets send to
-# those ports.  Ultimately, you can choose whatever port you like, but that
-# range seems to give more interesting results.
 TRACEROUTE_PORT_NUMBER = 33434  # Cisco traceroute port number.
 
-# Sometimes packets on the internet get dropped.  PROBE_ATTEMPT_COUNT is the
-# maximum number of times your traceroute function should attempt to probe a
-# single router before giving up and moving on.
 PROBE_ATTEMPT_COUNT = 3
 
 def _bytes_to_bitstring(buffer: bytes) -> str:
     return ''.join(format(byte, '08b') for byte in buffer)
 
 class IPv4:
-    # Each member below is a field from the IPv4 packet header.  They are
-    # listed below in the order they appear in the packet.  All fields should
-    # be stored in host byte order.
-    #
-    # You should only modify the __init__() method of this class.
     version: int
     header_len: int  # Note length in bytes, not the value in the packet.
     tos: int         # Also called DSCP and ECN bits (i.e. on wikipedia).
@@ -66,11 +49,6 @@ class IPv4:
 
 
 class ICMP:
-    # Each member below is a field from the ICMP header.  They are listed below
-    # in the order they appear in the packet.  All fields should be stored in
-    # host byte order.
-    #
-    # You should only modify the __init__() function of this class.
     type: int
     code: int
     cksum: int
@@ -88,11 +66,6 @@ class ICMP:
 
 
 class UDP:
-    # Each member below is a field from the UDP header.  They are listed below
-    # in the order they appear in the packet.  All fields should be stored in
-    # host byte order.
-    #
-    # You should only modify the __init__() function of this class.
     src_port: int
     dst_port: int
     len: int
@@ -110,62 +83,79 @@ class UDP:
         return f"UDP (src_port {self.src_port}, dst_port {self.dst_port}, " + \
             f"len {self.len}, cksum 0x{self.cksum:x})"
 
+def _parse_icmp(buf: bytes):
+    outer_ipv4 = IPv4(buf[:20])
+    if outer_ipv4.proto != 1 or len(buf) < outer_ipv4.header_len + 8:
+        return None
+    icmp = ICMP(buf[outer_ipv4.header_len:outer_ipv4.header_len + 8])
+    
+    inner_ipv4_offset = outer_ipv4.header_len + 8
+    if len(buf) < inner_ipv4_offset + 20:
+        return None
+    inner_ipv4 = IPv4(buf[inner_ipv4_offset:inner_ipv4_offset + 20])
+    
+    udp_offset = inner_ipv4_offset + inner_ipv4.header_len
+    if len(buf) < udp_offset + 8:
+        return None
+    udp = UDP(buf[udp_offset:udp_offset + 8])
+
+    return outer_ipv4, icmp, inner_ipv4, udp
 
 def traceroute(sendsock: util.Socket, recvsock: util.Socket, ip: str) \
         -> list[list[str]]:
-    """ Run traceroute and returns the discovered path.
-
-    Calls util.print_result() on the result of each TTL's probes to show
-    progress.
-
-    Arguments:
-    sendsock -- This is a UDP socket you will use to send traceroute probes.
-    recvsock -- This is the socket on which you will receive ICMP responses.
-    ip -- This is the IP address of the end host you will be tracerouting.
-
-    Returns:
-    A list of lists representing the routers discovered for each ttl that was
-    probed.  The ith list contains all of the routers found with TTL probe of
-    i+1.   The routers discovered in the ith list can be in any order.  If no
-    routers were found, the ith list can be empty.  If `ip` is discovered, it
-    should be included as the final element in the list.
-    """
-
     routers: list[list[str]] = []
     for ttl in range (1, TRACEROUTE_MAX_TTL + 1):
         sendsock.set_ttl(ttl)
+        # --- send ---
+        probed_ports: list[int] = []
+        for i in range(PROBE_ATTEMPT_COUNT):
+            port = TRACEROUTE_PORT_NUMBER + (ttl - 1) * PROBE_ATTEMPT_COUNT + i # unique port per probe&ttl
+            sendsock.sendto("potato".encode(), (ip, port))
+            probed_ports.append(port)
 
+        # --- receive / collect ---
+        seen_ports = set()
         responders = set()
-        for _ in range(PROBE_ATTEMPT_COUNT):
-            sendsock.sendto("potato".encode(), (ip, TRACEROUTE_PORT_NUMBER))
+        while len(seen_ports) < PROBE_ATTEMPT_COUNT:
+            if not recvsock.recv_select():  # no packet ready now, don't block
+                break
+            
+            buf, address = recvsock.recvfrom()
+            if len(buf) < 20:
+                continue
 
-            if recvsock.recv_select():
-                buf, address = recvsock.recvfrom()
+            # print(buf.hex()) # *** for debugging ***
 
-                # print(buf.hex()) # *** for debugging, REMOVE later ***
+            # --- parsing the incoming reply ---
+            parsed = _parse_icmp(buf)
+            if parsed is None:
+                continue
+            
+            outer_ipv4, icmp, inner_ipv4, udp = parsed
 
-                outer_ipv4 = IPv4(buf[:20])
-                icmp = ICMP(buf[outer_ipv4.header_len:outer_ipv4.header_len + 8])
+            # skip if it's not a recognized packet or if it's a duplicate
+            if udp.dst_port not in probed_ports or udp.dst_port in seen_ports:
+                continue
 
-                if icmp.type == 11 and icmp.code == 0: # Time Exceeded
-                    responders.add(outer_ipv4.src)
-                elif icmp.type == 3 and icmp.code == 3: # Destination Unreachable
-                    # finish up and return
-                    inner_ipv4_offset = outer_ipv4.header_len + 8
-                    inner_ipv4 = IPv4(buf[inner_ipv4_offset:inner_ipv4_offset + 20])
-                    destination_ip = inner_ipv4.dst
+            if icmp.type == 11 and icmp.code == 0: # Time Exceeded
+                if inner_ipv4.dst != ip:
+                    continue
+                responders.add(outer_ipv4.src)
+                seen_ports.add(udp.dst_port)
+            elif icmp.type == 3 and icmp.code == 3: # Destination Unreachable
+                destination_ip = inner_ipv4.dst
+                if destination_ip != ip:
+                    continue
 
-                    if destination_ip != ip:
-                        continue
-
-                    util.print_result([destination_ip], ttl)
-                    routers.append([destination_ip])
-                    return routers
+                seen_ports.add(udp.dst_port)
+                util.print_result([destination_ip], ttl)
+                routers.append([destination_ip])
+                return routers
 
         routers.append(list(responders))
         util.print_result(list(responders), ttl)
-    return routers
 
+    return routers
 
 if __name__ == '__main__':
     args = util.parse_args()
